@@ -1,50 +1,67 @@
 console.log("main.js!!");
 
-$(document).ready(()=>{
-	console.log("Ready!!");
-});
+$(document).ready(() => {
+  console.log("Ready!!");
 
-$("#my_start").click(()=>{
-	console.log("Start!!");
+  const applicationId = "1072753919144124850";  // ← 君の楽天アプリID
+  const fetchProductInfo = async (jan) => {
+    const url = `https://app.rakuten.co.jp/services/api/IchibaItem/Search/20170706?applicationId=${applicationId}&keyword=${jan}`;
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.Items && data.Items.length > 0) {
+        const item = data.Items[0].Item;
+        return {
+          name: item.itemName,
+          price: item.itemPrice
+        };
+      } else {
+        return { name: "商品情報なし", price: "不明" };
+      }
+    } catch (e) {
+      console.error("APIエラー:", e);
+      return { name: "エラー", price: "―" };
+    }
+  };
 
-	// Quagga
-	Quagga.init({
-		inputStream: {
-			name : "Live",
-			type : "LiveStream",
-			target: document.getElementById("my_quagga")
-		},
-		decoder: {
-			readers: ["ean_reader"]
-		}
-	}, err=>{
-		if(err){
-			console.log(err);
-			return;
-		}
-		console.log("Initialization finished!!");
-		Quagga.start();
-	});
+  $("#my_start").click(() => {
+    console.log("Start!!");
 
-	Quagga.onProcessed(result=>{
-		if(result == null) return;
-		if(typeof(result) != "object") return;
-		if(result.boxes == undefined) return;
-		const ctx = Quagga.canvas.ctx.overlay;
-		const canvas = Quagga.canvas.dom.overlay;
-		ctx.clearRect(0, 0, parseInt(canvas.width), parseInt(canvas.height));
-		Quagga.ImageDebug.drawPath(result.box, 
-			{x: 0, y: 1}, ctx, {color: "blue", lineWidth: 5});
-	});
+    Quagga.init({
+      inputStream: {
+        name: "Live",
+        type: "LiveStream",
+        target: document.querySelector("#my_quagga"),
+        constraints: {
+          facingMode: "environment"
+        }
+      },
+      decoder: {
+        readers: ["ean_reader"]
+      }
+    }, err => {
+      if (err) {
+        console.log(err);
+        return;
+      }
+      console.log("Initialization finished!!");
+      Quagga.start();
+    });
 
-	Quagga.onDetected(result=>{
-		console.log(result.codeResult.code);
-		$("#my_result").text(result.codeResult.code);
-		$("#my_barcode div").barcode(result.codeResult.code, "ean13");
-	});
-});
+    Quagga.onDetected(async (result) => {
+      const code = result.codeResult.code;
+      console.log("JANコード:", code);
+      $("#my_result").text(`JANコード: ${code}`);
+      $("#my_barcode div").barcode(code, "ean13");
 
-$("#my_stop").click(()=>{
-	console.log("Stop!!");
-	Quagga.stop();
+      const product = await fetchProductInfo(code);
+      const productText = `商品名: ${product.name}<br>価格: ${product.price}円`;
+      $("#my_result").html(`JANコード: ${code}<br>${productText}`);
+    });
+  });
+
+  $("#my_stop").click(() => {
+    console.log("Stop!!");
+    Quagga.stop();
+  });
 });
